@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Inventory with Sales Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: auto;
+        }
+        h2 {
+            text-align: center;
+        }
+        #inventory-table, #sales-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        #inventory-table th, #inventory-table td, #sales-table th, #sales-table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: center;
+        }
+        .form-control {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+        }
+        .form-control label {
+            margin-right: 10px;
+        }
+        #add-btn, #sales-report-btn, #total-sales-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        #add-btn:hover, #sales-report-btn:hover, #total-sales-btn:hover {
+            background-color: #45a049;
+        }
+        #search-bar {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+        }
+        #sales-report-page {
+            display: none;
+        }
+        .received-amount {
+            width: 100%;
+            padding: 8px;
+            margin-top: 10px;
+        }
+        .total-sales {
+            margin-top: 10px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Inventory Management</h2>
+    <input type="text" id="search-bar" placeholder="Search by Name, Quantity, or Code" onkeyup="searchItems()">
+
+    <div>
+        <div class="form-control">
+            <label for="name">Name:</label>
+            <input type="text" id="name" required>
+        </div>
+        <div class="form-control">
+            <label for="quantity">Quantity:</label>
+            <input type="number" id="quantity" required>
+        </div>
+        <div class="form-control">
+            <label for="code">Code:</label>
+            <input type="text" id="code" required>
+        </div>
+        <div class="form-control">
+            <label for="stock-price">Stock Price (PHP):</label>
+            <input type="number" id="stock-price" required>
+        </div>
+        <div class="form-control">
+            <label for="seller-price">Seller Price (PHP):</label>
+            <input type="number" id="seller-price" required>
+        </div>
+        <button id="add-btn" onclick="addItem()">Add Item</button>
+        <button id="sales-report-btn" onclick="toggleSalesReport()">View Sales Report</button>
+    </div>
+
+    <div id="inventory-page">
+        <table id="inventory-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Quantity</th>
+                    <th>Code</th>
+                    <th>Stock Price</th>
+                    <th>Seller Price</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="inventory-body">
+                <!-- Items will be displayed here -->
+            </tbody>
+        </table>
+    </div>
+
+    <div id="sales-report-page">
+        <h2>Sales Report</h2>
+        <table id="sales-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Quantity Sold</th>
+                    <th>Code</th>
+                    <th>Seller Price</th>
+                    <th>Received Amount (PHP)</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="sales-body">
+                <!-- Sales records will be displayed here -->
+            </tbody>
+        </table>
+        <div class="received-amount">
+            <button id="total-sales-btn" onclick="calculateTotalSales()">Calculate Total Sales</button>
+        </div>
+        <div class="total-sales" id="total-sales-display"></div>
+        <button id="sales-report-btn" onclick="toggleSalesReport()">Back to Inventory</button>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            loadInventory();
+            loadSalesReport();
+        });
+
+        function loadInventory() {
+            const inventory = JSON.parse(localStorage.getItem("inventory")) || [];
+            displayItems(inventory);
+        }
+
+        function loadSalesReport() {
+            const sales = JSON.parse(localStorage.getItem("sales")) || [];
+            displaySales(sales);
+        }
+
+        function displayItems(items) {
+            const tableBody = document.getElementById("inventory-body");
+            tableBody.innerHTML = "";
+
+            items.forEach((item, index) => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${item.name}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.code}</td>
+                    <td>${item.stockPrice}</td>
+                    <td>${item.sellerPrice}</td>
+                    <td>
+                        <button onclick="editItem(${index})">Edit</button>
+                        <button onclick="deleteItem(${index})">Delete</button>
+                        <button onclick="sellItem(${index})">Sell</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        function displaySales(sales) {
+            const salesBody = document.getElementById("sales-body");
+            salesBody.innerHTML = "";
+
+            sales.forEach((sale, index) => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${sale.name}</td>
+                    <td>${sale.quantity}</td>
+                    <td>${sale.code}</td>
+                    <td>${sale.sellerPrice}</td>
+                    <td>
+                        <input type="number" value="${sale.receivedAmount || ''}" 
+                            onchange="updateReceivedAmount(${index}, this.value)" placeholder="Received">
+                    </td>
+                    <td>${sale.date}</td>
+                    <td><button onclick="deleteSale(${index})">Delete</button></td>
+                `;
+                salesBody.appendChild(row);
+            });
+        }
+
+        function addItem() {
+            const name = document.getElementById("name").value;
+            const quantity = document.getElementById("quantity").value;
+            const code = document.getElementById("code").value;
+            const stockPrice = document.getElementById("stock-price").value;
+            const sellerPrice = document.getElementById("seller-price").value;
+
+            if (name && quantity && code && stockPrice && sellerPrice) {
+                const inventory = JSON.parse(localStorage.getItem("inventory")) || [];
+                inventory.push({ name, quantity, code, stockPrice, sellerPrice });
+                localStorage.setItem("inventory", JSON.stringify(inventory));
+
+                document.getElementById("name").value = "";
+                document.getElementById("quantity").value = "";
+                document.getElementById("code").value = "";
+                document.getElementById("stock-price").value = "";
+                document.getElementById("seller-price").value = "";
+
+                loadInventory();
+            } else {
+                alert("Please fill out all fields.");
+            }
+        }
+
+        function editItem(index) {
+            const inventory = JSON.parse(localStorage.getItem("inventory"));
+            const item = inventory[index];
+
+            const name = prompt("Edit Name:", item.name);
+            const quantity = prompt("Edit Quantity:", item.quantity);
+            const code = prompt("Edit Code:", item.code);
+            const stockPrice = prompt("Edit Stock Price:", item.stockPrice);
+            const sellerPrice = prompt("Edit Seller Price:", item.sellerPrice);
+
+            if (name && quantity && code && stockPrice && sellerPrice) {
+                inventory[index] = { name, quantity, code, stockPrice, sellerPrice };
+                localStorage.setItem("inventory", JSON.stringify(inventory));
+                loadInventory();
+            }
+        }
+
+        function deleteItem(index) {
+            const inventory = JSON.parse(localStorage.getItem("inventory"));
+            inventory.splice(index, 1);
+            localStorage.setItem("inventory", JSON.stringify(inventory));
+            loadInventory();
+        }
+
+        function sellItem(index) {
+            const inventory = JSON.parse(localStorage.getItem("inventory"));
+            const item = inventory[index];
+            const quantityToSell = prompt("Enter quantity to sell:");
+
+            if (quantityToSell > 0 && quantityToSell <= item.quantity) {
+                item.quantity -= quantityToSell;
+                localStorage.setItem("inventory", JSON.stringify(inventory));
+
+                const sale = {
+                    name: item.name,
+                    quantity: quantityToSell,
+                    code: item.code,
+                    sellerPrice: item.sellerPrice,
+                    receivedAmount: 0,
+                    date: new Date().toLocaleString()
+                };
+
+                const sales = JSON.parse(localStorage.getItem("sales")) || [];
+                sales.push(sale);
+                localStorage.setItem("sales", JSON.stringify(sales));
+
+                loadInventory();
+                loadSalesReport();
+            } else {
+                alert("Invalid quantity.");
+            }
+        }
+
+        function deleteSale(index) {
+            const sales = JSON.parse(localStorage.getItem("sales"));
+            sales.splice(index, 1);
+            localStorage.setItem("sales", JSON.stringify(sales));
+            loadSalesReport();
+        }
+
+        function updateReceivedAmount(index, amount) {
+            const sales = JSON.parse(localStorage.getItem("sales"));
+            sales[index].receivedAmount = parseFloat(amount);
+            localStorage.setItem("sales", JSON.stringify(sales));
+        }
+
+        function calculateTotalSales() {
+            const sales = JSON.parse(localStorage.getItem("sales")) || [];
+            const total = sales.reduce((sum, sale) => sum + (sale.sellerPrice * sale.quantity), 0);
+            document.getElementById("total-sales-display").textContent = `Total Sales: ₱${total.toFixed(2)}`;
+        }
+
+        function toggleSalesReport() {
+            const inventoryPage = document.getElementById("inventory-page");
+            const salesReportPage = document.getElementById("sales-report-page");
+
+            if (inventoryPage.style.display === "none") {
+                inventoryPage.style.display = "block";
+                salesReportPage.style.display = "none";
+            } else {
+                inventoryPage.style.display = "none";
+                salesReportPage.style.display = "block";
+            }
+        }
+
+        function searchItems() {
+            const query = document.getElementById("search-bar").value.toLowerCase();
+            const inventory = JSON.parse(localStorage.getItem("inventory")) || [];
+            const filteredItems = inventory.filter(item =>
+                item.name.toLowerCase().includes(query) ||
+                item.quantity.toString().includes(query) ||
+                item.code.toLowerCase().includes(query)
+            );
+            displayItems(filteredItems);
+        }
+    </script>
+</body>
+</html>
